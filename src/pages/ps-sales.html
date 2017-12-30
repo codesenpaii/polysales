@@ -1,0 +1,311 @@
+<!--
+@license
+Copyright (c) 2016 The Polymer Project Authors. All rights reserved.
+This code may only be used under the BSD style license found at http://polymer.github.io/LICENSE.txt
+The complete set of authors may be found at http://polymer.github.io/AUTHORS.txt
+The complete set of contributors may be found at http://polymer.github.io/CONTRIBUTORS.txt
+Code distributed by Google as part of the polymer project is also
+subject to an additional IP rights grant found at http://polymer.github.io/PATENTS.txt
+-->
+
+<link rel="import" href="../../bower_components/polymer/polymer-element.html">
+<link rel="import" href="../../bower_components/paper-input/paper-input.html">
+<link rel="import" href="../../bower_components/paper-button/paper-button.html">
+<link rel="import" href="../../bower_components/iron-icons/iron-icons.html">
+<link rel="import" href="../../bower_components/paper-icon-button/paper-icon-button.html">
+
+<link rel="import" href="../shared-styles.html">
+
+<!-- Custom all needed web component dependencies -->
+
+<!-- Update numeral-js version -->
+<link rel="import" href="../plugins/numeral-js.html">
+<!-- Add custom validation support -->
+<link rel="import" href="../plugins/paper-money-input-ench.html">
+<!-- Change codebase to support Polymer 2.0 -->
+<link rel="import" href="../plugins/sticky-element.html">
+
+<dom-module id="ps-sales">
+  <template>
+    <style include="shared-styles">
+      :host {
+        display: block;
+        padding: 10px;
+      }
+      .search > paper-input {
+        width: 100%;
+      }
+      .products > .card[is-empty] {
+        color: red;
+      }
+      sticky-element {
+        top: 10px;
+        max-height: calc(100vh - 120px);
+      }
+      .cart {
+        margin-bottom: 10px;
+        overflow: auto;
+        max-height: calc(60vh - 110px);
+      }
+      .payment {
+        overflow: auto;
+        max-height: calc(50vh - 120px);
+      }
+      .payment h3 {
+        margin: 0px;
+      }
+      .payment paper-money-input-ench {
+        margin-top: 1em;
+      }
+      .payment paper-button {
+        width: 100%;
+        background-color: var(--paper-indigo-500);
+        color: white;
+        margin: 1em 0 0 0;
+      }
+      .payment paper-button[disabled] {
+        background-color: var(--paper-indigo-100);
+        cursor: not-allowed;
+      }
+    </style>
+    <style>
+      /* Page Layout */
+      :host > .grid {
+        grid-gap: 10px; 
+        --cols-xl: 3;
+        --cols-lg: 3;
+      }
+      :host > .grid > .catalog {
+        --col-xl: span 2;
+        --col-lg: span 2;
+      }
+      /* .grid > .cart {
+
+      } */
+    </style>
+
+    <!-- How to adjust custom media query -->
+    <div class="grid">
+      <div class="catalog card">
+        <div>
+          Katalog
+        </div>
+        <div class="search">
+          <paper-input value="{{ searchFilter::input }}" placeholder="Search Products"></paper-input>
+        </div>
+        <div class="products">
+          <template is="dom-repeat" items="[[ productToSell ]]" 
+            filter="{{ _filterProduct(searchFilter) }}" as="item">
+            <div class="card" on-click="addToCart" is-empty$="[[ _isEmpty(item.qty) ]]">
+              <div class="name">
+                [[ item.name ]]
+                <span class="qty">([[ item.qty ]])</span>
+              </div>
+              <div class="price">[[ item.price ]]</div>
+            </div>
+          </template>
+        </div>
+      </div>
+      <sticky-element>
+        <div class="cart card">
+          <div>
+            Cart
+          </div>
+          <template is="dom-repeat" items="[[ productInCart ]]" as="item">
+            <div class="cart-item">
+              <div class="name">[[ item.name ]]</div>
+              <div class="price">
+                ([[ item.price ]] x <span class="count">[[ item.count ]]</span>)
+              </div>
+              <paper-icon-button class="delete" icon="close"
+                on-click="removeFromCart"></paper-icon-button>
+            </div>
+          </template>
+          <template is="dom-if" if="[[ _isEmpty(productInCart.length) ]]">
+            The cart is empty!
+          </template> 
+        </div>
+        <div class="payment card">
+          <div>
+            Total Amount
+          </div>
+          <h3>
+            Rp <numeral-js number="[[ totalAmount ]]" format="0,0" print></numeral-js>
+          </h3>
+          <small>
+            Change: Rp <numeral-js number="[[ changeAmount ]]" format="0,0" print></numeral-js>
+          </small>
+          <paper-money-input-ench 
+            currency="Rp"
+            precision="0"
+            label="0"
+            unit-symbol="."
+            decimal-symbol=","
+            min-value="0"
+            max-value="100000000"
+            value="{{ cashAmount::input }}" 
+            custom-validation="[[ !isCashSufficient ]]"
+            custom-error-message="Amount of cash is not sufficient"
+            no-label-float>
+          </paper-money-input-ench>
+          <paper-button 
+            disabled$="[[ !isCashSufficient ]]">
+            Finish
+          </paper-button>
+        </div>
+      </sticky-element>
+    </div>
+  </template>
+
+  <script>
+    class PsSales extends Polymer.Element {
+      static get is() { return 'ps-sales'; }
+      static get properties() {
+        return {
+          db: {
+            type: Object,
+            observer: '_dbChanged'
+          },
+
+          searchFilter: String,
+          productInCart: {
+            type: Array,
+            value: []
+          },
+          productToSell: {
+            type: Array,
+            value: []
+          },
+          isCashSufficient: {
+            type: Boolean,
+            value: true,
+            notify: true
+          },
+          cashAmount: {
+            type: Number,
+            value: 0
+          },
+          totalAmount: {
+            type: Number,
+            value: 0
+          },
+          changeAmount: {
+            type: Number,
+            value: 0
+          }
+        }
+      }
+      static get observers() {
+        return [
+          '_calculateChange(cashAmount, totalAmount)'
+        ];
+      }
+
+      /**
+       * Use for one-time configuration of your component after local DOM is initialized. 
+       */
+       ready() {
+        super.ready();
+
+        Polymer.RenderStatus.afterNextRender(this, function() {
+          numeral.register('locale', 'id', {
+            delimiters: { thousands: '.', decimal: ',' }
+          });
+          numeral.locale('id');
+        });
+      }
+
+      // Db initialized
+      _dbChanged(db) {
+        db.$.fetchSync('products', this, 'productToSell');
+      }
+
+      // Filter product by keyword input
+      _filterProduct(keyword) {
+        return function(item) {
+          if (!keyword) return true;
+          if (!item) return false;
+          const lcItem = (item.name).toLowerCase();
+          const lcWord = (keyword).toLowerCase();
+          return (lcItem && ~lcItem.indexOf(lcWord));
+        };
+      }
+      
+      _isEmpty(length) {
+        return length == 0;
+      }
+
+      _calculateChange(cashAmount, totalAmount) {
+        this.changeAmount = cashAmount - totalAmount;
+        this.isCashSufficient = ((cashAmount - totalAmount) >= 0);
+      }
+      
+      addToCart(e) {
+        // Don't add to cart if product quantity below zero
+        if (e.model.item.qty <= 0) {
+          return false;
+        }
+
+        // Substract product quantity
+        let index = this.productToSell.indexOf(e.model.item);
+        this.set('productToSell.' + index + '.qty', e.model.item.qty - 1);
+
+        // Update count if sameitem
+        const sameItem = _.find(this.productInCart, function(item) {
+          return item._id == e.model.item._id;
+        });
+
+        if (sameItem) {
+          // Add product count in cart
+          index = this.productInCart.indexOf(sameItem);
+          this.set('productInCart.' + index + '.count', sameItem.count + 1);
+          // Add total amount
+          this.totalAmount += parseInt(sameItem.price);
+        }
+        else {
+          // Add product to cart
+          this.push('productInCart', Object.assign(e.model.item, { count: 1 }));
+          // Add total amount
+          this.totalAmount += parseInt(e.model.item.price);
+          // Scroll to bottom
+          const elCart = this.shadowRoot.querySelector('.cart');
+          setTimeout(() => { 
+            elCart.scrollTop = elCart.scrollHeight; 
+          });
+        }
+      }
+
+      removeFromCart(e) {
+        // Return back the product quantity
+        const self = this;
+
+        _.find(this.productToSell, function(item) {
+          if (item._id == e.model.item._id) {
+            const index = self.productToSell.indexOf(item);
+            self.set('productToSell.' + index + '.qty', item.qty + 1);
+
+            return true;
+          } 
+          else {
+            return false;
+          }
+        });
+
+        // Substract product count in cart
+        const index = this.productInCart.indexOf(e.model.item);
+        if(e.model.item.count > 1) {
+          this.set('productInCart.' + index + '.count', e.model.item.count - 1);
+        }
+        // Remove product in cart
+        else {
+          this.splice('productInCart', index, 1);
+        }
+
+        // Substract total amount
+        this.totalAmount -= parseInt(e.model.item.price);
+      }
+    }
+
+    window.customElements.define(PsSales.is, PsSales);
+  </script>
+</dom-module>

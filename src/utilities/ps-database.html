@@ -1,0 +1,94 @@
+<link rel="import" href="../../bower_components/polymer/polymer-element.html">
+
+<script src="../../bower_components/pouchdb/dist/pouchdb.min.js"></script>
+
+<dom-module id="ps-database">
+  <template>
+    <style>
+      :host {
+        display: block
+      }
+    </style>
+
+  </template>
+
+  <script>
+    /**
+     * `ps-database` Description
+     *
+     * @summary ShortDescription.
+     * @customElement
+     * @polymer
+     * @extends {Polymer.Element}
+     */
+    class PsDatabase extends Polymer.Element {
+      /**
+       * String providing the tag name to register the element under.
+       */
+      static get is() {
+        return 'ps-database';
+      }
+
+      /**
+       * Object describing property-related metadata used by Polymer features
+       */
+      static get properties() {
+        return {
+          'db': {
+            type: Object,
+            value: {
+              'products' : {},
+              'customers': {},
+              'suppliers': {},
+              '$': {}
+            },
+            notify: true
+          }
+        };
+      }
+
+      /**
+       * Instance of the element is created/upgraded. Use: initializing state,
+       * set up event listeners, create shadow dom.
+       * @constructor
+       */
+      constructor() {
+        super();
+        
+        PouchDB.debug.enable('*');
+
+        this.set('db.products',  new PouchDB('db-ps-products'));
+        this.set('db.customers', new PouchDB('db-ps-customers'));
+        this.set('db.suppliers', new PouchDB('db-ps-suppliers'));
+
+        this.set('db.$', {
+          'fetch': (dbName, options = {}) => {
+            return this.db[dbName].allDocs(Object.assign(options, { include_docs: true }));
+          },
+          'fetchSync': (dbName, component, property, options = {}) => {
+            options = Object.assign(options, { include_docs: true });
+            return this.db[dbName].allDocs(options).then((result) => {
+              result.rows.forEach(item => {
+                component.push(property, item.doc);
+              });
+            });
+          }
+        });
+      }
+
+      /**
+       * Use for one-time configuration of your component after local DOM is initialized. 
+       */
+      ready() {
+        super.ready();
+
+        Polymer.RenderStatus.afterNextRender(this, function() {
+          
+        });
+      }
+
+    }
+
+    window.customElements.define(PsDatabase.is, PsDatabase);
+  </script>
+</dom-module>
