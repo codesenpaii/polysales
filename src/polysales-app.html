@@ -20,6 +20,9 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
 <link rel="import" href="../bower_components/iron-pages/iron-pages.html">
 <link rel="import" href="../bower_components/iron-selector/iron-selector.html">
 <link rel="import" href="../bower_components/paper-icon-button/paper-icon-button.html">
+<!-- Polyfill -->
+<link rel="import" href="../bower_components/neon-animation/web-animations.html">
+
 <link rel="import" href="my-icons.html">
 
 <link rel="import" href="utilities/ps-database.html">
@@ -116,7 +119,7 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
             fallback-selection="view404"
             role="main">
           <ps-sales name="sales" db="[[ db ]]"></ps-sales>
-          <ps-products name="products"></ps-products>
+          <ps-products name="products" db="[[ db ]]"></ps-products>
           <ps-customers name="customers"></ps-customers>
           <ps-suppliers name="suppliers"></ps-suppliers>
           <ps-inventories name="inventories"></ps-inventories>

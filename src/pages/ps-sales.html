@@ -201,10 +201,7 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
         ];
       }
 
-      /**
-       * Use for one-time configuration of your component after local DOM is initialized. 
-       */
-       ready() {
+      ready() {
         super.ready();
 
         Polymer.RenderStatus.afterNextRender(this, function() {

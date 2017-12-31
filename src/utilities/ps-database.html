@@ -1,6 +1,7 @@
 <link rel="import" href="../../bower_components/polymer/polymer-element.html">
 
 <script src="../../bower_components/pouchdb/dist/pouchdb.min.js"></script>
+<script src="../../bower_components/pouchdb/dist/pouchdb.find.min.js"></script>
 
 <dom-module id="ps-database">
   <template>
@@ -55,11 +56,28 @@
       constructor() {
         super();
         
-        PouchDB.debug.enable('*');
+        // PouchDB.debug.enable('*');
+        PouchDB.debug.disable();
 
         this.set('db.products',  new PouchDB('db-ps-products'));
         this.set('db.customers', new PouchDB('db-ps-customers'));
         this.set('db.suppliers', new PouchDB('db-ps-suppliers'));
+
+        // Uncomment to get dummy product
+        // this.db.products.bulkDocs([
+        //   { name: "Gatsyby Cologne", price: 21000, qty: 1},
+        //   { name: "Ikan Kecil", price: 3500, qty: 1},
+        //   { name: "Indocoffee Sachet", price: 1500, qty: 1},
+        //   { name: "Indomilk", price: 5000, qty: 1},
+        //   { name: "Madu Hitam Propolis (botol)", price: 51000, qty: 1},
+        //   { name: "Nutrisari", price: 1100, qty: 1},
+        //   { name: "Sambal ABC 275 ml", price: 7000, qty: 1},
+        //   { name: "Sambal Sachet Delmonte", price: 150, qty: 1},
+        //   { name: "Sendok aluminium", price: 1200, qty: 1}
+        // ]).then(function (result) {
+        //   console.log('created');
+        //   console.log(result);
+        // })
 
         this.set('db.$', {
           'fetch': (dbName, options = {}) => {
@@ -71,6 +89,57 @@
               result.rows.forEach(item => {
                 component.push(property, item.doc);
               });
+            });
+          },
+
+          /* Query Params */
+          // 1. search     : string
+          // 2. sortBy     : string
+          // 3. sortDir    : string
+          // 4. currentPage: number
+          // 5. pageLimit  : number
+          // 6. fields     : array of string
+
+          'fetchQuery': (dbName, params = {}) => {
+            const self = this;
+            return this.db[dbName].createIndex({
+              index: { fields: [params.sortBy] }
+            }).then(() => {
+              const sorter = {};
+              sorter[params.sortBy] = params.sortDir;
+              const notNull = {};
+              notNull[params.sortBy] = {'$gt': null};
+
+              return self.db[dbName].find({
+                selector: {
+                  $and: [
+                    notNull,
+                    { name: {'$regex': new RegExp(params.search, 'i')} }
+                  ]
+                },
+                fields: params.fields,
+                sort: [sorter],
+                // Todo: use startkey + limit pattern, coz poor perf. on skip
+                limit: params.pageLimit,
+                skip: (params.currentPage - 1) * params.pageLimit
+              });
+            });
+          },
+
+          /* Query Params */
+          // 1. ids: array of _id (string)
+
+          'fetchByIds': (dbName, ids) => {
+            const arrIds = [];
+            ids.forEach(element => {
+              arrIds.push({
+                '_id': element
+              });
+            });
+            return this.db[dbName].find({
+              selector: {
+                $or: arrIds
+              }
             });
           }
         });

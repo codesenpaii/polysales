@@ -23,7 +23,9 @@
     "iron-icons": "^2.0.1",
     "app-pouchdb": "^2.1.1",
     "paper-money-input-ench": "faan11/paper-money-input-ench#^2.0.1",
-    "numeral-js": "^0.1.3"
+    "numeral-js": "^0.1.3",
+    "bwt-datatable": "^2.0.4",
+    "paper-dialog-scrollable": "^2.1.0"
   },
   "resolutions": {
     "polymer": "^2.0.0"

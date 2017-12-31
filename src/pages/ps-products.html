@@ -9,7 +9,14 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
 -->
 
 <link rel="import" href="../../bower_components/polymer/polymer-element.html">
+<link rel="import" href="../../bower_components/bwt-datatable/bwt-datatable-card.html">
+<link rel="import" href="../../bower_components/bwt-datatable/bwt-datatable.html">
+<link rel="import" href="../../bower_components/paper-dialog-scrollable/paper-dialog-scrollable.html">
+
 <link rel="import" href="../shared-styles.html">
+
+<link rel="import" href="../plugins/numeral-js.html">
+<link rel="import" href="../plugins/paper-money-input-ench.html">
 
 <dom-module id="ps-products">
   <template>
@@ -22,16 +29,117 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
     </style>
 
     <div class="card">
-      <div class="circle">1</div>
-      <h1>Products</h1>
-      <p>Ut labores minimum atomorum pro. Laudem tibique ut has.</p>
-      <p>Lorem ipsum dolor sit amet, per in nusquam nominavi periculis, sit elit oportere ea.Lorem ipsum dolor sit amet, per in nusquam nominavi periculis, sit elit oportere ea.Cu mei vide viris gloriatur, at populo eripuit sit.</p>
+
+      <paper-datatable-card id="datatableCard" header="Products" page-size="20" data-source="{{ data }}" id-property="_id" selected-ids="{{ selectedIds }}">
+
+        <div slot="toolbar-main">
+          <paper-input value="{{ searchTerm }}" on-input="retrieveResults" label="Search..." style="display:inline-block" no-label-float>
+            <div prefix>
+              <iron-icon icon="search"></iron-icon>
+            </div>
+          </paper-input>
+          <paper-icon-button icon="cached" on-tap="retrieveResults"></paper-icon-button>
+        </div>
+        <div slot="toolbar-select">
+          <paper-icon-button icon="delete" on-tap="deleteSelected"></paper-icon-button>
+        </div>
+        <div slot="toolbar-select-single">
+          <paper-icon-button icon="datatable:editable" on-tap="editDialogForSelected"></paper-icon-button>
+        </div>
+
+        <paper-datatable id="datatable" selectable multi-selection selected-items="{{ selectedItems }}" on-row-tap="rowTapped">
+          <div no-results>
+            Loading or no more items...
+          </div>
+
+          <!-- <paper-datatable-column header="No" property="id" type="String" tooltip="Number" sortable align="center" style="min-width: 40px" sorted></paper-datatable-column> -->
+          
+          <paper-datatable-column header="Name" property="name" type="String" tooltip="Product Name" sortable></paper-datatable-column>
+
+          <paper-datatable-column header="Price" property="price" type="Number" tooltip="Product Price" sortable>
+            <template>
+              Rp <numeral-js number="[[ value ]]" format="0,0" print></numeral-js>
+            </template>
+          </paper-datatable-column>
+
+          <paper-datatable-column header="Quantity" property="qty" type="Number" tooltip="Product Quantity" sortable></paper-datatable-column>
+
+          <!-- <paper-datatable-column header="About me" property="about" type="String" sortable tooltip="Some title" style="min-width: 320px" dialog format-value="{{clip}}" edit-icon>
+            <template>
+              <paper-textarea value="{{value}}" no-label-float></paper-textarea>
+            </template>
+          </paper-datatable-column> -->
+          
+          <!-- <paper-datatable-column header="Location" property="location" type="Object" tooltip="Some title" style="min-width: 300px" cell-style="font-family:monospace;" dialog format-value="{{formatLatLng}}" edit-icon>
+            <template>
+              <span>
+                <google-map latitude="{{value.lat}}" longitude="{{value.lng}}" style="height:300px;margin:20px 0px;" zoom="3">
+                  <google-map-marker latitude="{{value.lat}}" longitude="{{value.lng}}" draggable="true"></google-map-marker>
+                </google-map>
+              </span>
+            </template>
+          </paper-datatable-column> -->
+
+        </paper-datatable>
+
+      </paper-datatable-card>
+
     </div>
   </template>
 
   <script>
     class PsProducts extends Polymer.Element {
       static get is() { return 'ps-products'; }
+      static get properties() {
+        return {
+          db: {
+            type: Object,
+            observer: '_dbChanged'
+          },
+          // productToSell: {
+          //   type: Array,
+          //   value: []
+          // },
+
+          data: Object
+        };
+      }
+      
+      // Db initialized
+      _dbChanged(db) {
+
+        const self = this;
+        this.set('data', {
+          queryForIds: (sort, page, pageSize) => {
+            return db.$.fetchQuery(
+              'products', {
+                search     : self.searchTerm,
+                fields     : ['_id'],
+                sortBy     : (sort.property != 'id') ? sort.property : '_id',
+                sortDir    : sort.direction,
+                currentPage: page,
+                pageLimit  : pageSize
+              }
+            ).then((result) => {
+              const ids = [];
+              result.docs.forEach(element => { ids.push(element['_id']) });
+              self.set('data.length', ids.length);
+              return ids || [];
+            });
+          },
+          getByIds: (ids) => {
+            return db.$.fetchByIds('products', ids).then((result) => {
+              return result.docs || [];
+            });
+          },
+          set: (item, property, value) => {
+            // return db.update(item.id, property, value);
+          },
+          length: 0
+        });
+      }
+
+      
     }
 
     window.customElements.define(PsProducts.is, PsProducts);
